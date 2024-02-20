@@ -1,0 +1,43 @@
+{
+  "title": "Error [ERR_REQUIRE_ESM]: require() of ES Module ~~ not supported.の調査",
+  "closed": true,
+  "archived": false,
+  "created_at": "2024-01-05",
+  "comments": [
+    {
+      "author": "zurukumo",
+      "created_at": "2024-01-05",
+      "body_markdown": "@nestjs/cliのバージョンを10.2.1にアップグレードして、`nest start`を実行したところ以下のようなエラーが発生した。\n```\n/Users/zurukumo/my-app/node_modules/wrap-ansi/index.js:2\nconst stringWidth = require('string-width');\n                    ^\n\nError [ERR_REQUIRE_ESM]: require() of ES Module /Users/zurukumo/my-app/node_modules/string-width/index.js from /Users/zurukumo/my-app/node_modules/wrap-ansi/index.js not supported.\nInstead change the require of /Users/zurukumo/my-app/node_modules/string-width/index.js in /Users/zurukumo/my-app/node_modules/wrap-ansi/index.js to a dynamic import() which is available in all CommonJS modules.\n    at Object.<anonymous> (/Users/zurukumo/my-app/node_modules/wrap-ansi/index.js:2:21) {\n  code: 'ERR_REQUIRE_ESM'\n}\n\nNode.js v20.10.0\nerror Command failed with exit code 1.\ninfo Visit https://yarnpkg.com/en/docs/cli/run for documentation about this command.\n```",
+      "body_updated_at": "2024-01-05"
+    },
+    {
+      "author": "zurukumo",
+      "created_at": "2024-01-05",
+      "body_markdown": "https://numb86-tech.hatenablog.com/entry/2020/08/07/091142\nどうやらCJSの中でESMを読み込もうとすると上記のエラーが出るようだ。\n今回の場合はwrap-ansi(CJS)の中でstring-width(ESM)を読み込もうとしてエラーが発生している？",
+      "body_updated_at": "2024-01-05"
+    },
+    {
+      "author": "zurukumo",
+      "created_at": "2024-01-05",
+      "body_markdown": "実際にファイルを開いて確認したら/node_modules/wrap-ansi/index.jsはCJSで、/node_modules/string-width/index.jsはESMだった。\n![](https://storage.googleapis.com/zenn-user-upload/ed537d8431e9-20240105.png)\n*wrap-ansi(CJS)*\n![](https://storage.googleapis.com/zenn-user-upload/807104eef38f-20240105.png)\n*string-width(ESM)*",
+      "body_updated_at": "2024-01-25"
+    },
+    {
+      "author": "zurukumo",
+      "created_at": "2024-01-05",
+      "body_markdown": "何気なく`yarn install`をしてみたら、以下のようなエラーが出ていた。\n```\nyarn install v1.22.18\n[1/5] 🔍  Validating package.json...\n[2/5] 🔍  Resolving packages...\n[3/5] 🚚  Fetching packages...\nwarning Pattern [\"strip-ansi@^6.0.1\"] is trying to unpack in the same destination \"/Users/zurukumo/Library/Caches/Yarn/v6/npm-strip-ansi-cjs-6.0.1-9e26c63d30f53443e9489495b2105d37b67a85d9-integrity/node_modules/strip-ansi-cjs\" as pattern [\"strip-ansi-cjs@npm:strip-ansi@^6.0.1\"]. This could result in non-deterministic behavior, skipping.\nwarning Pattern [\"string-width@^4.1.0\"] is trying to unpack in the same destination \"/Users/zurukumo/Library/Caches/Yarn/v6/npm-string-width-cjs-4.2.3-269c7117d27b05ad2e536830a8ec895ef9c6d010-integrity/node_modules/string-width-cjs\" as pattern [\"string-width-cjs@npm:string-width@^4.2.0\"]. This could result in non-deterministic behavior, skipping.\nwarning Pattern [\"strip-ansi@^6.0.0\"] is trying to unpack in the same destination \"/Users/zurukumo/Library/Caches/Yarn/v6/npm-strip-ansi-cjs-6.0.1-9e26c63d30f53443e9489495b2105d37b67a85d9-integrity/node_modules/strip-ansi-cjs\" as pattern [\"strip-ansi-cjs@npm:strip-ansi@^6.0.1\"]. This could result in non-deterministic behavior, skipping.\nwarning Pattern [\"string-width@^4.2.3\"] is trying to unpack in the same destination \"/Users/zurukumo/Library/Caches/Yarn/v6/npm-string-width-cjs-4.2.3-269c7117d27b05ad2e536830a8ec895ef9c6d010-integrity/node_modules/string-width-cjs\" as pattern [\"string-width-cjs@npm:string-width@^4.2.0\"]. This could result in non-deterministic behavior, skipping.\nwarning Pattern [\"string-width@^4.2.0\"] is trying to unpack in the same destination \"/Users/zurukumo/Library/Caches/Yarn/v6/npm-string-width-cjs-4.2.3-269c7117d27b05ad2e536830a8ec895ef9c6d010-integrity/node_modules/string-width-cjs\" as pattern [\"string-width-cjs@npm:string-width@^4.2.0\"]. This could result in non-deterministic behavior, skipping.\nwarning Pattern [\"wrap-ansi@^7.0.0\"] is trying to unpack in the same destination \"/Users/zurukumo/Library/Caches/Yarn/v6/npm-wrap-ansi-cjs-7.0.0-67e145cff510a6a6984bdf1152911d69d2eb9e43-integrity/node_modules/wrap-ansi-cjs\" as pattern [\"wrap-ansi-cjs@npm:wrap-ansi@^7.0.0\"]. This could result in non-deterministic behavior, skipping.\n[4/5] 🔗  Linking dependencies...\nwarning Workspaces can only be enabled in private projects.\n[5/5] 🔨  Building fresh packages...\n✨  Done in 6.87s.\n```\n雑に読んだ感じだと、\"wrap-ansi@^7.0.0\"と\"wrap-ansi-cjs@npm:wrap-ansi@^7.0.0\"がという2つのパッケージが一つのパッケージとしてまとめられているようだ。容量削減のためだろうか？string-widthやstrip-asinも同様にまとめられているようだ。\n他のJSファイルがwrap-ansi(ESM)を利用しようとしても、wrap-ansi-cjs(CJS)を利用するようにnode_modulesが構成されていると考えれば、今までの調査の結果と辻褄が合う。",
+      "body_updated_at": "2024-01-25"
+    },
+    {
+      "author": "zurukumo",
+      "created_at": "2024-01-05",
+      "body_markdown": "https://github.com/yarnpkg/yarn/issues/4812\n上記のIssueによると、どうやらこれはyarnのバージョン1.xで起こるキャッシュ関連のバグのようだ。\nyarnをアップグレードをするか、npmやpnpmへの乗り換えを検討したほうが良いのかもしれない…。\nresolutionでパッケージのバージョンを固定することでも解決できるようだが、あまり本質的な感じはせず…。",
+      "body_updated_at": "2024-01-12"
+    },
+    {
+      "author": "zurukumo",
+      "created_at": "2024-01-10",
+      "body_markdown": "https://zenn.dev/ukiyocreate_dev/articles/3c19aaee69b7e3\nやや乱暴だが、上記の方法で解決。"
+    }
+  ]
+}
